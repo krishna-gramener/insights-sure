@@ -22,15 +22,15 @@ async function init() {
 const pdfFileInput = document.getElementById('pdfFile');
 const analyzeBtn = document.getElementById('analyzeBtn');
 const viewDbBtn = document.getElementById('viewDbBtn');
-const pdfViewer = document.getElementById('pdfViewer');
-const uploadPrompt = document.getElementById('uploadPrompt');
 const loader = document.getElementById('loader');
 const extractedInfo = document.getElementById('extractedInfo');
 const noDataMessage = document.getElementById('noDataMessage');
+const viewPdfBtn = document.getElementById('viewPdfBtn');
 
 // Modal elements - initialize them after DOM is fully loaded
 let dbModal;
 let relevantRowsModal;
+let pdfViewerModal;
 
 // Store matched claims for later use
 let matchedClaims = [];
@@ -39,6 +39,7 @@ let matchedClaims = [];
 pdfFileInput.addEventListener('change', handleFileSelect);
 analyzeBtn.addEventListener('click', analyzePDF);
 viewDbBtn.addEventListener('click', viewDatabase);
+viewPdfBtn.addEventListener('click', viewPdfInModal);
 
 // Add event listener for the View Relevant Rows button
 document.addEventListener('DOMContentLoaded', () => {
@@ -54,6 +55,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Initialize modals
         dbModal = new bootstrap.Modal(document.getElementById('dbModal'));
         relevantRowsModal = new bootstrap.Modal(document.getElementById('relevantRowsModal'));
+        pdfViewerModal = new bootstrap.Modal(document.getElementById('pdfViewerModal'));
         
         // Load CSV data
         loadCSVData();
@@ -68,11 +70,14 @@ document.addEventListener('DOMContentLoaded', () => {
 function handleFileSelect(event) {
     const file = event.target.files[0];
     if (file && file.type === 'application/pdf') {
-        // Show PDF in iframe
+        // Store the PDF URL for later use in modal
         const objectURL = URL.createObjectURL(file);
-        pdfViewer.src = objectURL;
-        pdfViewer.classList.remove('d-none');
-        uploadPrompt.classList.add('d-none');
+        
+        // Show the View PDF button
+        viewPdfBtn.classList.remove('d-none');
+        
+        // Set the source for the modal iframe
+        document.getElementById('pdfViewerModal-iframe').src = objectURL;
         
         // Convert PDF to base64 for API
         const reader = new FileReader();
@@ -111,25 +116,76 @@ async function callLLM(base64PDF) {
     
     const systemPrompt = `
     You are an AI assistant specialized in extracting information from healthcare claim denial letters.
-    Extract the following information from the provided PDF document:
+    Extract the following information from the provided PDF document and organize it into these sections:
     
-    1. Date of service or claim date (as a string)
-    2. Member name (patient name as a string)
-    3. Member ID (insurance ID as a string)
-    4. HCPCS code (procedure code as a string)
-    5. Disease or diagnosis (as an array of strings, can be multiple diseases)
-    6. Drug Name (as an array of strings, can be multiple drugs)
-    7. Summary of the reason for denial (as a string)
+    1. Payer & Administrative Details:
+       - Payer Name
+       - Payer Address
+       - Date of Letter
+       - Level of Review
+    
+    2. Member Information:
+       - Member Name
+       - Member ID
+       - Date of Birth
+    
+    3. Provider & Claim Information:
+       - Provider Name
+       - Provider NPI
+       - Request/Claim Number
+       - Requested Service
+       - HCPCS Code
+       - Coverage Determination
+    
+    4. Denial & Policy Rationale:
+       - Denial Reason(s)
+       - Rationale Category
+       - Policy Reference
+       - Policy Review Date
+       - Sources Cited
+    
+    5. Appeals & Review:
+       - Appeal Window
+       - Appeal Options
+       - Appeal Timelines
+       - Reviewer Name
+       - Reviewer Role
     
     Format your response STRICTLY as a JSON object with the following structure:
     {
-      "date": "YYYY-MM-DD or extracted date format",
-      "memberName": "Full name of the member/patient",
-      "memberId": "Member ID number",
-      "hcpcsCode": "HCPCS/CPT code",
-      "disease": ["Disease 1", "Disease 2"],
-      "drugName": ["Drug 1", "Drug 2"],
-      "denialReason": "Concise summary of why the claim was denied"
+        "payerDetails": {
+            "payerName": "Insurance Company Name",
+            "payerAddress": "Full address",
+            "dateOfLetter": "YYYY-MM-DD",
+            "levelOfReview": "Level description"
+        },
+        "memberInfo": {
+            "memberName": "Full Name",
+            "memberId": "ID123456",
+            "dateOfBirth": "YYYY-MM-DD"
+        },
+        "providerInfo": {
+            "providerName": "Dr. Name",
+            "providerNpi": "1234567890",
+            "claimNumber": "CLAIM123456",
+            "drugName": "Drug Name",
+            "hcpcsCode": "J1234",
+            "coverageDetermination": "APPROVED/DENIED"
+        },
+        "denialInfo": {
+            "denialReasons": "Full denial reasons",
+            "rationaleCategory": "Category description",
+            "policyReference": "Policy number/name",
+            "policyReviewDate": "YYYY-MM-DD",
+            "sourcesCited": "Sources cited in the letter"
+        },
+        "appealInfo": {
+            "appealWindow": "Time period",
+            "appealOptions": "Available options",
+            "appealTimelines": "Timeline details",
+            "reviewerName": "Reviewer's name",
+            "reviewerRole": "Reviewer's position"
+        }
     }
     
     If you cannot find specific information for string fields, use "Not found in document".
@@ -186,17 +242,42 @@ async function callLLM(base64PDF) {
             return parsedData;
         } catch (jsonError) {
             console.error('Error parsing JSON response:', jsonError);
-            console.log('Raw response:', text);
             
-            // Fallback: Try to extract information from unstructured text
+            // Fallback: Try to extract information from unstructured text using the new data structure
             const fallbackData = {
-                date: extractValue(text, 'date', 'Not found in document'),
-                memberName: extractValue(text, 'member name|patient name', 'Not found in document'),
-                memberId: extractValue(text, 'member id|insurance id', 'Not found in document'),
-                hcpcsCode: extractValue(text, 'hcpcs|cpt code', 'Not found in document'),
-                disease: extractArrayValue(text, 'disease|diagnosis'),
-                drugName: extractArrayValue(text, 'drug name|medication'),
-                denialReason: extractValue(text, 'denial reason|reason for denial', 'Not found in document')
+                payerDetails: {
+                    payerName: extractValue(text, 'payer name|insurance company', 'Not found'),
+                    payerAddress: extractValue(text, 'payer address|address', 'Not found'),
+                    dateOfLetter: extractValue(text, 'date of letter|letter date', 'Not found'),
+                    levelOfReview: extractValue(text, 'level of review|review level', 'Not found')
+                },
+                memberInfo: {
+                    memberName: extractValue(text, 'member name|patient name', 'Not found'),
+                    memberId: extractValue(text, 'member id|insurance id', 'Not found'),
+                    dateOfBirth: extractValue(text, 'date of birth|birth date|dob', 'Not found')
+                },
+                providerInfo: {
+                    providerName: extractValue(text, 'provider name|doctor name', 'Not found'),
+                    providerNpi: extractValue(text, 'provider npi|npi', 'Not found'),
+                    claimNumber: extractValue(text, 'claim number|request number', 'Not found'),
+                    requestedService: extractValue(text, 'requested service|service|drug name|medication', 'Not found'),
+                    hcpcsCode: extractValue(text, 'hcpcs code|cpt code', 'Not found'),
+                    coverageDetermination: extractValue(text, 'coverage determination|determination', 'Not found')
+                },
+                denialInfo: {
+                    denialReasons: extractValue(text, 'denial reason|reason for denial', 'Not found'),
+                    rationaleCategory: extractValue(text, 'rationale category|category', 'Not found'),
+                    policyReference: extractValue(text, 'policy reference|reference', 'Not found'),
+                    policyReviewDate: extractValue(text, 'policy review date|review date', 'Not found'),
+                    sourcesCited: extractValue(text, 'sources cited|sources', 'Not found')
+                },
+                appealInfo: {
+                    appealWindow: extractValue(text, 'appeal window|window', 'Not found'),
+                    appealOptions: extractValue(text, 'appeal options|options', 'Not found'),
+                    appealTimelines: extractValue(text, 'appeal timelines|timelines', 'Not found'),
+                    reviewerName: extractValue(text, 'reviewer name|reviewer', 'Not found'),
+                    reviewerRole: extractValue(text, 'reviewer role|role', 'Not found')
+                }
             };
             
             return fallbackData;
@@ -335,29 +416,67 @@ function displayExtractedInfo(data) {
     // Save the extracted data for later use
     extractedData = data;
     
-    // Update table cells with extracted data
-    document.getElementById('date').textContent = data.date || '-';
-    document.getElementById('memberName').textContent = data.memberName || '-';
-    document.getElementById('memberId').textContent = data.memberId || '-';
-    document.getElementById('hcpcsCode').textContent = data.hcpcsCode || '-';
-    document.getElementById('disease').textContent = Array.isArray(data.disease) ? data.disease.join(', ') : (data.disease || '-');
-    document.getElementById('drugName').textContent = Array.isArray(data.drugName) ? data.drugName.join(', ') : (data.drugName || '-');
-    document.getElementById('denialReason').textContent = data.denialReason || '-';
-    
-    // Show the extracted info section
-    extractedInfo.classList.remove('d-none');
-    noDataMessage.classList.add('d-none');
-    
-    // If we have CSV data and drug name, perform analysis
-    if (csvData && data.drugName && (Array.isArray(data.drugName) ? data.drugName.length > 0 : data.drugName !== 'Could not extract')) {
-        // Show the analysis section
-        const analysisSection = document.getElementById('analysisSection');
-        if (analysisSection) {
-            analysisSection.classList.remove('d-none');
+    try {
+        // Update Payer & Administrative Details
+        if (data.payerDetails) {
+            document.getElementById('payerName').textContent = data.payerDetails.payerName || '-';
+            document.getElementById('payerAddress').textContent = data.payerDetails.payerAddress || '-';
+            document.getElementById('dateOfLetter').textContent = data.payerDetails.dateOfLetter || '-';
+            document.getElementById('levelOfReview').textContent = data.payerDetails.levelOfReview || '-';
         }
         
-        // Perform the analysis and create charts
-        performAnalysis(data);
+        // Update Member Information
+        if (data.memberInfo) {
+            document.getElementById('memberName').textContent = data.memberInfo.memberName || '-';
+            document.getElementById('memberId').textContent = data.memberInfo.memberId || '-';
+            document.getElementById('dateOfBirth').textContent = data.memberInfo.dateOfBirth || '-';
+        }
+        
+        // Update Provider & Claim Information
+        if (data.providerInfo) {
+            document.getElementById('providerName').textContent = data.providerInfo.providerName || '-';
+            document.getElementById('providerNpi').textContent = data.providerInfo.providerNpi || '-';
+            document.getElementById('claimNumber').textContent = data.providerInfo.claimNumber || '-';
+            document.getElementById('requestedService').textContent = data.providerInfo.drugName || '-';
+            document.getElementById('hcpcsCode').textContent = data.providerInfo.hcpcsCode || '-';
+            document.getElementById('coverageDetermination').textContent = data.providerInfo.coverageDetermination || '-';
+        }
+        
+        // Update Denial & Policy Rationale
+        if (data.denialInfo) {
+            document.getElementById('denialReasons').textContent = data.denialInfo.denialReasons || '-';
+            document.getElementById('rationaleCategory').textContent = data.denialInfo.rationaleCategory || '-';
+            document.getElementById('policyReference').textContent = data.denialInfo.policyReference || '-';
+            document.getElementById('policyReviewDate').textContent = data.denialInfo.policyReviewDate || '-';
+            document.getElementById('sourcesCited').textContent = data.denialInfo.sourcesCited || '-';
+        }
+        
+        // Update Appeals & Review
+        if (data.appealInfo) {
+            document.getElementById('appealWindow').textContent = data.appealInfo.appealWindow || '-';
+            document.getElementById('appealOptions').textContent = data.appealInfo.appealOptions || '-';
+            document.getElementById('appealTimelines').textContent = data.appealInfo.appealTimelines || '-';
+            document.getElementById('reviewerName').textContent = data.appealInfo.reviewerName || '-';
+            document.getElementById('reviewerRole').textContent = data.appealInfo.reviewerRole || '-';
+        }
+        
+        // Show the extracted info section
+        extractedInfo.classList.remove('d-none');
+        noDataMessage.classList.add('d-none');
+        
+        // If we have CSV data and requested service, perform analysis
+        if (csvData && data.providerInfo && data.providerInfo.drugName) {
+            // Show the analysis section
+            const analysisSection = document.getElementById('analysisSection');
+            if (analysisSection) {
+                analysisSection.classList.remove('d-none');
+            }
+            
+            // Perform the analysis and create charts
+            performAnalysis(data);
+        }
+    } catch (error) {
+        console.error('Error in displayExtractedInfo:', error);
     }
 }
 
@@ -392,7 +511,6 @@ async function loadCSVData() {
         
         const csvText = await response.text();
         csvData = parseCSV(csvText);
-        console.log('CSV data loaded successfully:', csvData.length, 'rows');
     } catch (error) {
         console.error('Error loading CSV data:', error);
         showNotification('Failed to load database. Please check the console for details.', true);
@@ -463,27 +581,38 @@ function viewDatabase() {
 
 // Perform analysis on extracted data
 async function performAnalysis(data) {
-    if (!csvData || !data.drugName) return;
+    if (!csvData || !data.providerInfo || !data.providerInfo.drugName) {
+        console.log('Cannot perform analysis: missing data');
+        return;
+    }
     
-    // Get drug names to match
-    const drugNames = Array.isArray(data.drugName) ? data.drugName : [data.drugName];
+    // Get search terms to match (requested service and HCPCS code)
+    const searchTerms = [];
     
+    // Add requested service to search terms
+    if (data.providerInfo.drugName && data.providerInfo.drugName !== 'Not found') {
+        searchTerms.push(data.providerInfo.drugName);
+    }
+    
+    if (searchTerms.length === 0) {
+        console.log('No valid search terms to analyze');
+        return;
+    }
+     
     // Set up Fuse.js for fuzzy matching
     const fuseOptions = {
         keys: ['Drug_Name'],
-        threshold: 0.4, // Lower threshold means more strict matching
+        threshold: 0.7, // Lower threshold means more strict matching
         includeScore: true
     };
     
     const fuse = new Fuse(csvData, fuseOptions);
     
-    // Find matches for each drug name
+    // Find matches for each search term
     let allMatches = [];
-    drugNames.forEach(drugName => {
-        if (drugName && drugName !== 'Could not extract' && drugName !== 'Not found in document') {
-            const matches = fuse.search(drugName);
-            allMatches = [...allMatches, ...matches];
-        }
+    searchTerms.forEach(term => {
+        const matches = fuse.search(term);
+        allMatches = [...allMatches, ...matches];
     });
     
     // Sort by score (lower is better) and remove duplicates
@@ -950,6 +1079,14 @@ function createStatusChart(claims) {
     } catch (error) {
         console.error('Error creating status chart:', error);
     }
+}
+
+// Generate random colors for charts
+// View PDF in modal
+function viewPdfInModal() {
+    // The iframe source is already set in handleFileSelect
+    // Just show the modal
+    pdfViewerModal.show();
 }
 
 // Generate random colors for charts

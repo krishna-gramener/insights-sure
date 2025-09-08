@@ -34,28 +34,14 @@
                 <div class="d-flex gap-2">
                     <button id="analyzeBtn" class="btn btn-primary">Analyze PDF</button>
                     <button id="viewDbBtn" class="btn btn-secondary">View DB</button>
+                    <button id="viewPdfBtn" class="btn btn-success d-none">View PDF</button>
                 </div>
             </div>
         </div>
         
         <div class="row">
-            <!-- PDF Viewer -->
-            <div class="col-md-6">
-                <div class="card mb-4">
-                    <div class="card-header">
-                        Denial Letter Viewer
-                    </div>
-                    <div class="card-body">
-                        <iframe id="pdfViewer" class="pdf-container w-100 d-none"></iframe>
-                        <div id="uploadPrompt" class="text-center p-5">
-                            <p>Upload a denial letter to view it here</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
             <!-- Extracted Information -->
-            <div class="col-md-6">
+            <div class="col-md-12">
                 <div class="card mb-4">
                     <div class="card-header">
                         Extracted Information
@@ -68,37 +54,167 @@
                             <p class="mt-2">Analyzing document...</p>
                         </div>
                         <div id="extractedInfo" class="d-none">
-                            <table class="table table-bordered">
-                                <tbody>
-                                    <tr>
-                                        <th>Date</th>
-                                        <td id="date">-</td>
-                                    </tr>
-                                    <tr>
-                                        <th>Member Name</th>
-                                        <td id="memberName">-</td>
-                                    </tr>
-                                    <tr>
-                                        <th>Member ID</th>
-                                        <td id="memberId">-</td>
-                                    </tr>
-                                    <tr>
-                                        <th>HCPCS Code</th>
-                                        <td id="hcpcsCode">-</td>
-                                    </tr>
-                                    <tr>
-                                        <th>Disease</th>
-                                        <td id="disease">-</td>
-                                    </tr>
-                                    <tr>
-                                        <th>Drug Name</th>
-                                        <td id="drugName">-</td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                            <div class="mt-3">
-                                <h5>Denial Reason Summary</h5>
-                                <div id="denialReason" class="p-3 bg-light rounded">-</div>
+                            <!-- First row with 3 cards -->
+                            <div class="row mb-4">
+                                <!-- Payer & Administrative Details -->
+                                <div class="col-md-4">
+                                    <div class="card h-100">
+                                        <div class="card-header bg-primary text-white">
+                                            Payer & Administrative Details
+                                        </div>
+                                        <div class="card-body">
+                                            <ul class="list-group list-group-flush">
+                                                <li class="list-group-item d-flex justify-content-between align-items-start">
+                                                    <div class="fw-bold">Payer Name:</div>
+                                                    <div id="payerName">-</div>
+                                                </li>
+                                                <li class="list-group-item d-flex justify-content-between align-items-start">
+                                                    <div class="fw-bold">Payer Address:</div>
+                                                    <div id="payerAddress">-</div>
+                                                </li>
+                                                <li class="list-group-item d-flex justify-content-between align-items-start">
+                                                    <div class="fw-bold">Date of Letter:</div>
+                                                    <div id="dateOfLetter">-</div>
+                                                </li>
+                                                <li class="list-group-item d-flex justify-content-between align-items-start">
+                                                    <div class="fw-bold">Level of Review:</div>
+                                                    <div id="levelOfReview">-</div>
+                                                </li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Member Information -->
+                                <div class="col-md-4">
+                                    <div class="card h-100">
+                                        <div class="card-header bg-info text-white">
+                                            Member Information
+                                        </div>
+                                        <div class="card-body">
+                                            <ul class="list-group list-group-flush">
+                                                <li class="list-group-item d-flex justify-content-between align-items-start">
+                                                    <div class="fw-bold">Member Name:</div>
+                                                    <div id="memberName">-</div>
+                                                </li>
+                                                <li class="list-group-item d-flex justify-content-between align-items-start">
+                                                    <div class="fw-bold">Member ID:</div>
+                                                    <div id="memberId">-</div>
+                                                </li>
+                                                <li class="list-group-item d-flex justify-content-between align-items-start">
+                                                    <div class="fw-bold">Date of Birth:</div>
+                                                    <div id="dateOfBirth">-</div>
+                                                </li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Provider & Claim Information -->
+                                <div class="col-md-4">
+                                    <div class="card h-100">
+                                        <div class="card-header bg-success text-white">
+                                            Provider & Claim Information
+                                        </div>
+                                        <div class="card-body">
+                                            <ul class="list-group list-group-flush">
+                                                <li class="list-group-item d-flex justify-content-between align-items-start">
+                                                    <div class="fw-bold">Provider Name:</div>
+                                                    <div id="providerName">-</div>
+                                                </li>
+                                                <li class="list-group-item d-flex justify-content-between align-items-start">
+                                                    <div class="fw-bold">Provider NPI:</div>
+                                                    <div id="providerNpi">-</div>
+                                                </li>
+                                                <li class="list-group-item d-flex justify-content-between align-items-start">
+                                                    <div class="fw-bold">Claim Number:</div>
+                                                    <div id="claimNumber">-</div>
+                                                </li>
+                                                <li class="list-group-item d-flex justify-content-between align-items-start">
+                                                    <div class="fw-bold">Requested Service:</div>
+                                                    <div id="requestedService">-</div>
+                                                </li>
+                                                <li class="list-group-item d-flex justify-content-between align-items-start">
+                                                    <div class="fw-bold">HCPCS Code:</div>
+                                                    <div id="hcpcsCode">-</div>
+                                                </li>
+                                                <li class="list-group-item d-flex justify-content-between align-items-start">
+                                                    <div class="fw-bold">Coverage Determination:</div>
+                                                    <div id="coverageDetermination">-</div>
+                                                </li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Second row with 2 cards -->
+                            <div class="row">
+                                <!-- Denial & Policy Rationale -->
+                                <div class="col-md-6">
+                                    <div class="card h-100">
+                                        <div class="card-header bg-warning text-dark">
+                                            Denial & Policy Rationale
+                                        </div>
+                                        <div class="card-body">
+                                            <ul class="list-group list-group-flush">
+                                                <li class="list-group-item d-flex justify-content-between align-items-start">
+                                                    <div class="fw-bold">Denial Reason(s):</div>
+                                                    <div id="denialReasons">-</div>
+                                                </li>
+                                                <li class="list-group-item d-flex justify-content-between align-items-start">
+                                                    <div class="fw-bold">Rationale Category:</div>
+                                                    <div id="rationaleCategory">-</div>
+                                                </li>
+                                                <li class="list-group-item d-flex justify-content-between align-items-start">
+                                                    <div class="fw-bold">Policy Reference:</div>
+                                                    <div id="policyReference">-</div>
+                                                </li>
+                                                <li class="list-group-item d-flex justify-content-between align-items-start">
+                                                    <div class="fw-bold">Policy Review Date:</div>
+                                                    <div id="policyReviewDate">-</div>
+                                                </li>
+                                                <li class="list-group-item d-flex justify-content-between align-items-start">
+                                                    <div class="fw-bold">Sources Cited:</div>
+                                                    <div id="sourcesCited">-</div>
+                                                </li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Appeals & Review -->
+                                <div class="col-md-6">
+                                    <div class="card h-100">
+                                        <div class="card-header bg-danger text-white">
+                                            Appeals & Review
+                                        </div>
+                                        <div class="card-body">
+                                            <ul class="list-group list-group-flush">
+                                                <li class="list-group-item d-flex justify-content-between align-items-start">
+                                                    <div class="fw-bold">Appeal Window:</div>
+                                                    <div id="appealWindow">-</div>
+                                                </li>
+                                                <li class="list-group-item d-flex justify-content-between align-items-start">
+                                                    <div class="fw-bold">Appeal Options:</div>
+                                                    <div id="appealOptions">-</div>
+                                                </li>
+                                                <li class="list-group-item d-flex justify-content-between align-items-start">
+                                                    <div class="fw-bold">Appeal Timelines:</div>
+                                                    <div id="appealTimelines">-</div>
+                                                </li>
+                                                <li class="list-group-item d-flex justify-content-between align-items-start">
+                                                    <div class="fw-bold">Reviewer Name:</div>
+                                                    <div id="reviewerName">-</div>
+                                                </li>
+                                                <li class="list-group-item d-flex justify-content-between align-items-start">
+                                                    <div class="fw-bold">Reviewer Role:</div>
+                                                    <div id="reviewerRole">-</div>
+                                                </li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                         <div id="noDataMessage" class="text-center p-5">
@@ -199,6 +315,24 @@
                             </tbody>
                         </table>
                     </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PDF Viewer Modal -->
+    <div class="modal fade" id="pdfViewerModal" tabindex="-1" aria-labelledby="pdfViewerModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="pdfViewerModalLabel">PDF Viewer</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <iframe id="pdfViewerModal-iframe" class="pdf-container w-100"></iframe>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
