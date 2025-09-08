@@ -511,6 +511,12 @@ async function loadCSVData() {
         
         const csvText = await response.text();
         csvData = parseCSV(csvText);
+        
+        // Check if risk tab is active and update the risk analysis
+        if (document.getElementById('risk-analysis')?.classList.contains('active')) {
+            const selectedFactor = document.getElementById('riskFactorSelect')?.value || 'gender';
+            createRiskAnalysis(csvData, selectedFactor);
+        }
     } catch (error) {
         console.error('Error loading CSV data:', error);
         showNotification('Failed to load database. Please check the console for details.', true);
@@ -530,7 +536,18 @@ function parseCSV(csvText) {
         const row = {};
         
         for (let j = 0; j < headers.length; j++) {
-            row[headers[j]] = values[j];
+            // Make sure we have a value for this column
+            if (j < values.length) {
+                // Convert numeric values to numbers
+                if (headers[j] === 'Risk_Score' || headers[j] === 'Patient_Age' || 
+                    headers[j] === 'Claim_Amount' || headers[j] === 'Paid_Amount') {
+                    row[headers[j]] = parseFloat(values[j]) || 0;
+                } else {
+                    row[headers[j]] = values[j];
+                }
+            } else {
+                row[headers[j]] = '';
+            }
         }
         
         result.push(row);
@@ -1115,4 +1132,251 @@ function generateColors(count) {
     }
     
     return colors.slice(0, count);
+}
+
+// Risk Analysis Tab Functions
+let riskScatterChart = null;
+
+// Initialize risk analysis tab
+document.addEventListener('DOMContentLoaded', () => {
+    // Add event listener for dropdown change
+    const riskFactorSelect = document.getElementById('riskFactorSelect');
+    if (riskFactorSelect) {
+        riskFactorSelect.addEventListener('change', () => {
+            if (csvData) {
+                createRiskAnalysis(csvData, riskFactorSelect.value);
+            }
+        });
+    }
+    
+    // Add event listener for tab switch
+    const riskTab = document.getElementById('risk-analysis-tab');
+    if (riskTab) {
+        riskTab.addEventListener('shown.bs.tab', () => {
+            if (csvData) {
+                const selectedFactor = document.getElementById('riskFactorSelect')?.value || 'gender';
+                createRiskAnalysis(csvData, selectedFactor);
+            }
+        });
+    }
+});
+
+// Create risk analysis based on selected factor
+function createRiskAnalysis(data, factor) {
+    // Create scatter plot
+    createRiskScatterPlot(data, factor);
+    
+    // Update summary
+    updateRiskSummary(data, factor);
+}
+
+// Create risk scatter plot
+function createRiskScatterPlot(data, factor) {
+    try {
+        const canvas = document.getElementById('riskScatterChart');
+        if (!canvas) {
+            console.error('Risk scatter chart canvas not found');
+            return;
+        }
+        
+        // Get field name based on factor
+        let fieldName;
+        let chartTitle;
+        switch (factor) {
+            case 'gender':
+                fieldName = 'Patient_Gender';
+                chartTitle = 'Risk Score by Patient Gender';
+                break;
+            case 'payer':
+                fieldName = 'Payer_Type';
+                chartTitle = 'Risk Score by Payer Type';
+                break;
+            case 'insurance':
+                fieldName = 'Insurance_Coverage_Type';
+                chartTitle = 'Risk Score by Insurance Coverage Type';
+                break;
+            default:
+                fieldName = 'Patient_Gender';
+                chartTitle = 'Risk Score by Patient Gender';
+        }
+        
+        // Prepare data for scatter plot
+        const categories = {};
+        data.forEach(item => {
+            const category = item[fieldName] || 'Unknown';
+            const riskScore = parseFloat(item["Risk_Score"]);
+            
+            if (!isNaN(riskScore)) {
+                if (!categories[category]) {
+                    categories[category] = [];
+                }
+                
+                categories[category].push({
+                    x: riskScore,
+                    y: category,
+                    label: category
+                });
+            }
+        });
+        
+        // Create datasets
+        const categoryNames = Object.keys(categories);
+        const colors = generateColors(categoryNames.length);
+        
+        const datasets = categoryNames.map((category, index) => {
+            return {
+                label: category,
+                data: categories[category],
+                backgroundColor: colors[index],
+                pointRadius: 6,
+                pointHoverRadius: 8
+            };
+        });
+        
+        // Destroy existing chart if it exists
+        if (riskScatterChart) {
+            riskScatterChart.destroy();
+        }
+        
+        // Create new chart
+        const ctx = canvas.getContext('2d');
+        riskScatterChart = new Chart(ctx, {
+            type: 'scatter',
+            data: {
+                datasets: datasets
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: chartTitle,
+                        font: {
+                            size: 16
+                        }
+                    },
+                    legend: {
+                        position: 'top'
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const point = context.raw;
+                                return `${point.label}: Risk Score ${point.x}`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Risk Score'
+                        }
+                    },
+                    y: {
+                        type: 'category',
+                        title: {
+                            display: true,
+                            text: chartTitle.split(' by ')[1]
+                        }
+                    }
+                }
+            }
+        });
+    } catch (error) {
+        console.error('Error creating risk scatter plot:', error);
+    }
+}
+
+// Update risk summary
+function updateRiskSummary(data, factor) {
+    const summaryElement = document.getElementById('riskAnalysisSummary');
+    if (!summaryElement) return;
+    
+    // Get field name based on factor
+    let fieldName;
+    let factorLabel;
+    switch (factor) {
+        case 'gender':
+            fieldName = 'Patient_Gender';
+            factorLabel = 'Patient Gender';
+            break;
+        case 'payer':
+            fieldName = 'Payer_Type';
+            factorLabel = 'Payer Type';
+            break;
+        case 'insurance':
+            fieldName = 'Insurance_Coverage_Type';
+            factorLabel = 'Insurance Coverage Type';
+            break;
+        default:
+            fieldName = 'Patient_Gender';
+            factorLabel = 'Patient Gender';
+    }
+    
+    // Calculate statistics by category
+    const stats = {};
+    data.forEach(item => {
+        const category = item[fieldName] || 'Unknown';
+        const riskScore = parseFloat(item["Risk_Score"]);
+        
+        if (!isNaN(riskScore)) {
+            if (!stats[category]) {
+                stats[category] = {
+                    count: 0,
+                    total: 0,
+                    min: Infinity,
+                    max: -Infinity
+                };
+            }
+            
+            stats[category].count++;
+            stats[category].total += riskScore;
+            stats[category].min = Math.min(stats[category].min, riskScore);
+            stats[category].max = Math.max(stats[category].max, riskScore);
+        }
+    });
+    
+    // Calculate averages
+    Object.keys(stats).forEach(category => {
+        stats[category].average = stats[category].total / stats[category].count;
+    });
+    
+    // Generate summary HTML
+    let summaryHTML = `<h5>Risk Score Analysis by ${factorLabel}</h5>`;
+    summaryHTML += '<div class="table-responsive"><table class="table table-striped">';
+    summaryHTML += '<thead><tr><th>Category</th><th>Count</th><th>Average Risk</th><th>Min Risk</th><th>Max Risk</th></tr></thead>';
+    summaryHTML += '<tbody>';
+    
+    Object.keys(stats).forEach(category => {
+        const stat = stats[category];
+        summaryHTML += `<tr>
+            <td>${category}</td>
+            <td>${stat.count}</td>
+            <td>${stat.average.toFixed(1)}%</td>
+            <td>${stat.min.toFixed(1)}%</td>
+            <td>${stat.max.toFixed(1)}%</td>
+        </tr>`;
+    });
+    
+    summaryHTML += '</tbody></table></div>';
+    
+    // Add insights
+    const highRiskCategories = Object.keys(stats).filter(cat => stats[cat].average > 50);
+    const lowRiskCategories = Object.keys(stats).filter(cat => stats[cat].average < 30);
+    
+    summaryHTML += '<div class="mt-3">';
+    if (highRiskCategories.length > 0) {
+        summaryHTML += `<p><strong>High Risk Categories:</strong> ${highRiskCategories.join(', ')} have average risk scores above 50.</p>`;
+    }
+    if (lowRiskCategories.length > 0) {
+        summaryHTML += `<p><strong>Low Risk Categories:</strong> ${lowRiskCategories.join(', ')} have average risk scores below 30.</p>`;
+    }
+    summaryHTML += '</div>';
+    
+    // Update the summary element
+    summaryElement.innerHTML = summaryHTML;
 }

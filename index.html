@@ -39,29 +39,43 @@
             </div>
         </div>
         
-        <div class="row">
-            <!-- Extracted Information -->
-            <div class="col-md-12">
-                <div class="card mb-4">
-                    <div class="card-header">
-                        Extracted Information
-                    </div>
-                    <div class="card-body">
-                        <div id="loader" class="d-none text-center">
-                            <div class="spinner-border text-primary" role="status">
-                                <span class="visually-hidden">Loading...</span>
+        <!-- Tab Navigation -->
+        <ul class="nav nav-tabs mb-3" id="mainTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="analysis-tab" data-bs-toggle="tab" data-bs-target="#analysis" type="button" role="tab" aria-controls="analysis" aria-selected="true">Analysis</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="risk-analysis-tab" data-bs-toggle="tab" data-bs-target="#risk-analysis" type="button" role="tab" aria-controls="risk-analysis" aria-selected="false">Risk Analysis</button>
+            </li>
+        </ul>
+        
+        <!-- Tab Content -->
+        <div class="tab-content" id="mainTabsContent">
+            <!-- Analysis Tab -->
+            <div class="tab-pane fade show active" id="analysis" role="tabpanel" aria-labelledby="analysis-tab">
+                <div class="row">
+                    <!-- Extracted Information -->
+                    <div class="col-md-12">
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                Extracted Information
                             </div>
-                            <p class="mt-2">Analyzing document...</p>
-                        </div>
-                        <div id="extractedInfo" class="d-none">
-                            <!-- First row with 3 cards -->
-                            <div class="row mb-4">
-                                <!-- Payer & Administrative Details -->
-                                <div class="col-md-4">
-                                    <div class="card h-100">
-                                        <div class="card-header bg-primary text-white">
-                                            Payer & Administrative Details
-                                        </div>
+                            <div class="card-body">
+                                <div id="loader" class="d-none text-center">
+                                    <div class="spinner-border text-primary" role="status">
+                                        <span class="visually-hidden">Loading...</span>
+                                    </div>
+                                    <p class="mt-2">Analyzing document...</p>
+                                </div>
+                                <div id="extractedInfo" class="d-none">
+                                    <!-- First row with 3 cards -->
+                                    <div class="row mb-4">
+                                        <!-- Payer & Administrative Details -->
+                                        <div class="col-md-4">
+                                            <div class="card h-100">
+                                                <div class="card-header bg-primary text-white">
+                                                    Payer & Administrative Details
+                                                </div>
                                         <div class="card-body">
                                             <ul class="list-group list-group-flush">
                                                 <li class="list-group-item d-flex justify-content-between align-items-start">
@@ -289,6 +303,47 @@
                     <div class="card-body">
                         <div id="summaryContent" class="p-3">
                             <p class="text-center text-muted">Generating summary...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+            </div>
+            
+            <!-- Risk Analysis Tab -->
+            <div class="tab-pane fade" id="risk-analysis" role="tabpanel" aria-labelledby="risk-analysis-tab">
+                <div class="row">
+                    <div class="col-md-12">
+                        <div class="card mb-4">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <h4 class="mb-0">Risk Score Analysis</h4>
+                                <div>
+                                    <select id="riskFactorSelect" class="form-select">
+                                        <option value="gender">Patient Gender</option>
+                                        <option value="payer">Payer Type</option>
+                                        <option value="insurance">Insurance Coverage Type</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div id="riskScatterContainer" style="height: 400px;">
+                                    <canvas id="riskScatterChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="row mt-4">
+                    <div class="col-md-12">
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <h4 class="mb-0">Risk Analysis Summary</h4>
+                            </div>
+                            <div class="card-body">
+                                <div id="riskAnalysisSummary" class="p-3">
+                                    <p class="text-muted">Select a risk factor and analyze the scatter plot to see the risk score distribution.</p>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
